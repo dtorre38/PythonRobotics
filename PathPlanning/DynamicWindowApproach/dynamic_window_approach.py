@@ -8,11 +8,26 @@ author: Atsushi Sakai (@Atsushi_twi), Göktuğ Karakaşlı
 
 import math
 from enum import Enum
-
+import moviepy.video.io.ImageSequenceClip
 import matplotlib.pyplot as plt
 import numpy as np
+import os
+import re
 
-show_animation = True
+# Animation settings
+show_animation = False
+fps = 10
+
+image_folder = os.getcwd()
+filename = 'images'
+filepath = os.path.join(image_folder, filename)
+
+# creates folder to store images if it doesn't exist
+try:
+    os.chdir(filepath)
+except FileNotFoundError:
+    os.makedirs(filepath)
+    os.chdir(filepath)
 
 
 def dwa_control(x, config, goal, ob):
@@ -265,14 +280,18 @@ def main(gx=10.0, gy=10.0, robot_type=RobotType.circle):
     goal = np.array([gx, gy])
 
     # input [forward speed, yaw_rate]
-
     config.robot_type = robot_type
     trajectory = np.array(x)
     ob = config.ob
+    i = 0
+
     while True:
         u, predicted_trajectory = dwa_control(x, config, goal, ob)
         x = motion(x, u, config.dt)  # simulate robot
         trajectory = np.vstack((trajectory, x))  # store state history
+
+        # create image name
+        image = 'image' + str(i) + '.png'
 
         if show_animation:
             plt.cla()
@@ -288,7 +307,24 @@ def main(gx=10.0, gy=10.0, robot_type=RobotType.circle):
             plot_arrow(x[0], x[1], x[2])
             plt.axis("equal")
             plt.grid(True)
+            plt.savefig(image, dpi='figure', format='png')
             plt.pause(0.0001)
+            plt.show()
+        else:
+            plt.cla()
+            # for stopping simulation with the esc key.
+            plt.gcf().canvas.mpl_connect(
+                'key_release_event',
+                lambda event: [exit(0) if event.key == 'escape' else None])
+            plt.plot(predicted_trajectory[:, 0], predicted_trajectory[:, 1], "-g")
+            plt.plot(x[0], x[1], "xr")
+            plt.plot(goal[0], goal[1], "xb")
+            plt.plot(ob[:, 0], ob[:, 1], "ok")
+            plot_robot(x[0], x[1], x[2], config)
+            plot_arrow(x[0], x[1], x[2])
+            plt.axis("equal")
+            plt.grid(True)
+            plt.savefig(image, dpi='figure', format='png')
 
         # check reaching goal
         dist_to_goal = math.hypot(x[0] - goal[0], x[1] - goal[1])
@@ -296,13 +332,30 @@ def main(gx=10.0, gy=10.0, robot_type=RobotType.circle):
             print("Goal!!")
             break
 
+        i += 1
+
     print("Done")
     if show_animation:
         plt.plot(trajectory[:, 0], trajectory[:, 1], "-r")
+        plt.savefig(image, dpi='figure', format='png')
         plt.pause(0.0001)
         plt.show()
+    else:
+        plt.plot(trajectory[:, 0], trajectory[:, 1], "-r")
+        plt.savefig(image, dpi='figure', format='png')
 
 
 if __name__ == '__main__':
     main(robot_type=RobotType.rectangle)
     # main(robot_type=RobotType.circle)
+
+    # creates sorted list of images
+    image_files = sorted(
+        [os.path.join(filepath, img) for img in os.listdir(filepath) if img.endswith(".png")],
+        key=lambda x: int(os.path.splitext(os.path.basename(x))[0][5:])
+    )
+
+    # creates mp4 with images
+    clip = moviepy.video.io.ImageSequenceClip.ImageSequenceClip(image_files, fps=fps)
+    clip.write_videofile('../dwa_test.mp4')
+
