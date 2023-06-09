@@ -8,9 +8,10 @@ author: Atsushi Sakai (@Atsushi_twi), Göktuğ Karakaşlı
 
 import math
 from enum import Enum
+import numpy as np
+
 import moviepy.video.io.ImageSequenceClip
 import matplotlib.pyplot as plt
-import numpy as np
 import os
 import re
 
@@ -18,16 +19,19 @@ import re
 show_animation = False
 fps = 10
 
-image_folder = os.getcwd()
-filename = 'images'
-filepath = os.path.join(image_folder, filename)
 
-# creates folder to store images if it doesn't exist
-try:
-    os.chdir(filepath)
-except FileNotFoundError:
-    os.makedirs(filepath)
-    os.chdir(filepath)
+def save_video():
+    fp = os.getcwd()
+
+    # creates sorted list of images
+    img_files = sorted(
+        [os.path.join(fp, img) for img in os.listdir(fp) if img.endswith(".png")],
+        key=lambda x: int(os.path.splitext(os.path.basename(x))[0][5:])
+    )
+
+    # creates mp4 with images
+    clip = moviepy.video.io.ImageSequenceClip.ImageSequenceClip(img_files, fps=fps)
+    clip.write_videofile('../dwa.mp4')
 
 
 def dwa_control(x, config, goal, ob):
@@ -273,6 +277,17 @@ def plot_robot(x, y, yaw, config):  # pragma: no cover
 
 
 def main(gx=10.0, gy=10.0, robot_type=RobotType.circle):
+    image_folder = os.getcwd()
+    filename = 'images'
+    filepath = os.path.join(image_folder, filename)
+
+    # creates folder to store images if it doesn't exist
+    try:
+        os.chdir(filepath)
+    except FileNotFoundError:
+        os.makedirs(filepath)
+        os.chdir(filepath)
+
     print(__file__ + " start!!")
     # initial state [x(m), y(m), yaw(rad), v(m/s), omega(rad/s)]
     x = np.array([0.0, 0.0, math.pi / 8.0, 0.0, 0.0])
@@ -283,6 +298,8 @@ def main(gx=10.0, gy=10.0, robot_type=RobotType.circle):
     config.robot_type = robot_type
     trajectory = np.array(x)
     ob = config.ob
+
+    # image name
     i = 0
 
     while True:
@@ -290,7 +307,7 @@ def main(gx=10.0, gy=10.0, robot_type=RobotType.circle):
         x = motion(x, u, config.dt)  # simulate robot
         trajectory = np.vstack((trajectory, x))  # store state history
 
-        # create image name
+        # image name
         image = 'image' + str(i) + '.png'
 
         if show_animation:
@@ -349,13 +366,5 @@ if __name__ == '__main__':
     main(robot_type=RobotType.rectangle)
     # main(robot_type=RobotType.circle)
 
-    # creates sorted list of images
-    image_files = sorted(
-        [os.path.join(filepath, img) for img in os.listdir(filepath) if img.endswith(".png")],
-        key=lambda x: int(os.path.splitext(os.path.basename(x))[0][5:])
-    )
-
-    # creates mp4 with images
-    clip = moviepy.video.io.ImageSequenceClip.ImageSequenceClip(image_files, fps=fps)
-    clip.write_videofile('../dwa_test.mp4')
+    save_video()
 
